@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Coin Shooter</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(180deg, #0f0f23 0%, #1a1a3e 50%, #0d0d1f 100%);
+        }
+        
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+            color: #ffd700;
+        }
+        
+        .score-box {
+            background: rgba(0,0,0,0.6);
+            padding: 15px 25px;
+            border-radius: 15px;
+            border: 2px solid #ffd700;
+            box-shadow: 0 0 20px rgba(255,215,0,0.3);
+        }
+        
+        .score-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #aaa;
+        }
+        
+        .score-value {
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255,215,0,0.5);
+        }
+        
+        .coins-count {
+            background: rgba(0,0,0,0.6);
+            padding: 15px 25px;
+            border-radius: 15px;
+            border: 2px solid #00d4ff;
+            color: #00d4ff;
+            box-shadow: 0 0 20px rgba(0,212,255,0.3);
+        }
+        
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+        }
+        
+        #game-over-screen { display: none; }
+        
+        .title {
+            font-size: 48px;
+            color: #ffd700;
+            text-shadow: 0 0 30px rgba(255,215,0,0.5);
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #888;
+            font-size: 16px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            color: #1a1a2e;
+            border: none;
+            padding: 18px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(255,215,0,0.4);
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover { transform: translateY(-3px); }
+        
+        .instructions {
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+            line-height: 1.6;
+        }
+        
+        #coin-image {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <!-- Hidden image for game sprite -->
+        <img id="coin-image" src="attached-coin.jpg" alt="Coin">
+        
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui">
+            <div class="hud">
+                <div class="score-box">
+                    <div class="score-label">Credits</div>
+                    <div class="score-value" id="score">0</div>
+                </div>
+                <div class="coins-count">
+                    <div class="score-label">Coins</div>
+                    <div class="score-value" id="coins">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="start-screen">
+            <div class="title">🪙 Coin Shooter</div>
+            <div class="subtitle">Shoot coins to earn credits!</div>
+            <button class="btn" onclick="startGame()">▶ START GAME</button>
+            <div class="instructions">
+                <p>📱 Tap/Click to shoot sparks</p>
+                <p>🪙 Hit falling coins for credits</p>
+                <p>💎 Don't let coins reach bottom!</p>
+            </div>
+        </div>
+        
+        <div id="game-over-screen">
+            <div class="title">Game Over</div>
+            <div class="subtitle" id="final-score">Credits: 0</div>
+            <button class="btn" onclick="restartGame()">🔄 PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const coinImage = document.getElementById('coin-image');
+        
+        // Game state
+        let gameRunning = false;
+        let score = 0;
+        let coinsDestroyed = 0;
+        let lastTime = 0;
+        let coinSpawnTimer = 0;
+        
+        // Game objects
+        let player = { x: 0, y: 0, width: 60, height: 60 };
+        let sparks = [];
+        let coins = [];
+        let particles = [];
+        
+        // Resize canvas
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 100;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+        
+        // Spark (bullet) class
+        class Spark {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = -10 - Math.random() * 5;
+                this.radius = 4;
+                this.life = 100;
+                this.trail = [];
+            }
+            
+            update() {
+                // Store trail
+                this.trail.push({ x: this.x, y: this.y, life: 10 });
+                if (this.trail.length > 10) this.trail.shift();
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+                
+                // Update trail
+                this.trail.forEach(t => t.life--);
+                this.trail = this.trail.filter(t => t.life > 0);
+            }
+            
+            draw() {
+                // Draw trail
+                this.trail.forEach((t, i) => {
+                    const alpha = t.life / 10;
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, this.radius * (i / 10), 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 215, 0, ${alpha * 0.5})`;
+                    ctx.fill();
+                });
+                
+                // Draw spark
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffd700';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ffed4e';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // Core
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+            }
+        }
+        
+        // Coin class
+        class Coin {
+            constructor() {
+                this.size = 50;
+                this.x = Math.random() * (canvas.width - this.size * 2) + this.size;
+                this.y = -this.size;
+                this.vy = 2 + Math.random() * 3;
+                this.rotation = 0;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+                this.value = Math.random() > 0.8 ? 10 : (Math.random() > 0.5 ? 5 : 1);
+                this.hit = false;
+            }
+            
+            update() {
+                this.y += this.vy;
+                this.rotation += this.rotationSpeed;
+                
+                // Check if reached bottom
+                if (this.y > canvas.height + this.size) {
+                    return false; // Remove coin
+                }
+                return true;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                if (coinImage.complete && coinImage.naturalWidth > 0) {
+                    // Use attached image
+                    ctx.drawImage(coinImage, -this.size/2, -this.size/2, this.size, this.size);
+                } else {
+                    // Fallback: draw coin shape
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size/2, 0, Math.PI * 2);
+                    ctx.fillStyle = this.value >= 10 ? '#00d4ff' : (this.value >= 5 ? '#ffa500' : '#ffd700');
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    
+                    // Value text
+                    ctx.rotate(-this.rotation);
+                    ctx.fillStyle = '#000';
+                    ctx.font = 'bold 20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.value, 0, 7);
+                }
+                
+                ctx.restore();
+                
+                // Glow effect
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = this.value >= 10 ? '#00d4ff' : (this.value >= 5 ? '#ffa500' : '#ffd700');
+                ctx.shadowBlur = 0;
+            }
+            
+            getBounds() {
+                return {
+                    left: this.x - this.size/2,
+                    right: this.x + this.size/2,
+                    top: this.y - this.size/2,
+                    bottom: this.y + this.size/2
+                };
+            }
+        }
+        
+        // Particle effect
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10;
+                this.life = 30;
+                this.color = color;
+                this.size = Math.random() * 5 + 2;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.3; // Gravity
+                this.life--;
+                this.size *= 0.95;
+            }
+            
+            draw() {
+                const alpha = this.life / 30;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+                ctx.fill();
+            }
+        }
+        
+        // Player shooter
+        function drawPlayer() {
+            const x = player.x;
+            const y = player.y;
+            
+            // Base
+            ctx.fillStyle = '#444';
+            ctx.fillRect(x - 30, y + 20, 60, 20);
+            
+            // Turret
+            ctx.save();
+            ctx.translate(x, y);
+            
+            // Cannon
+            ctx.fillStyle = '#666';
+            ctx.fillRect(-8, -40, 16, 40);
+            
+            // Body (using coin image if available)
+            if (coinImage.complete && coinImage.naturalWidth > 0) {
+                ctx.drawImage(coinImage, -30, -30, 60, 60);
+            } else {
+                ctx.beginPath();
+                ctx.arc(0, 0, 30, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffd700';
+                ctx.fill();
+                ctx.strokeStyle = '#ffed4e';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+            
+            // Glow
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ffd700';
+            ctx.shadowBlur = 0;
+            
+            ctx.restore();
+        }
+        
+        // Collision detection
+        function checkCollision(spark, coin) {
+            const dx = spark.x - coin.x;
+            const dy = spark.y - coin.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance < (spark.radius + coin.size/2);
+        }
+        
+        // Create explosion effect
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 15; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+        
+        // Shoot spark
+        function shoot() {
+            if (!gameRunning) return;
+            sparks.push(new Spark(player.x, player.y - 40));
+        }
+        
+        // Spawn coin
+        function spawnCoin() {
+            if (!gameRunning) return;
+            coins.push(new Coin());
+        }
+        
+        // Update game
+        function update(deltaTime) {
+            if (!gameRunning) return;
+            
+            // Spawn coins every second
+            coinSpawnTimer += deltaTime;
+            if (coinSpawnTimer >= 1000) {
+                spawnCoin();
+                coinSpawnTimer = 0;
+            }
+            
+            // Update sparks
+            sparks.forEach(spark => spark.update());
+            sparks = sparks.filter(spark => spark.life > 0 && spark.y > -50);
+            
+            // Update coins
+            coins = coins.filter(coin => {
+                const stillOnScreen = coin.update();
+                if (!stillOnScreen && !coin.hit) {
+                    // Coin reached bottom without being hit
+                    gameOver();
+                    return false;
+                }
+                return stillOnScreen && !coin.hit;
+            });
+            
+            // Check collisions
+            sparks.forEach((spark, sIndex) => {
+                coins.forEach((coin, cIndex) => {
+                    if (checkCollision(spark, coin)) {
+                        // Hit!
+                        coin.hit = true;
+                        score += coin.value;
+                        coinsDestroyed++;
+                        
+                        // Create explosion
+                        const color = coin.value >= 10 ? 'rgb(0, 212, 255)' : 
+                                     (coin.value >= 5 ? 'rgb(255, 165, 0)' : 'rgb(255, 215, 0)');
+                        createExplosion(coin.x, coin.y, color);
+                        
+                        // Update UI
+                        document.getElementById('score').textContent = score;
+                        document.getElementById('coins').textContent = coinsDestroyed;
+                        
+                        // Remove spark
+                        spark.life = 0;
+                    }
+                });
+            });
+            
+            // Update particles
+            particles.forEach(p => p.update());
+            particles = particles.filter(p => p.life > 0);
+        }
+        
+        // Draw game
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = 'rgba(15, 15, 35, 0.3)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw stars background
+            ctx.fillStyle = '#fff';
+            for (let i = 0; i < 50; i++) {
+                const x = (i * 137) % canvas.width;
+                const y = (i * 53) % canvas.height;
+                const size = (i % 3) + 1;
+                ctx.globalAlpha = 0.3 + (i % 5) / 10;
+                ctx.fillRect(x, y, size, size);
+            }
+            ctx.globalAlpha = 1;
+            
+            // Draw game objects
+            sparks.forEach(spark => spark.draw());
+            coins.forEach(coin => coin.draw());
+            particles.forEach(p => p.draw());
+            drawPlayer();
+        }
+        
+        // Game loop
+        function gameLoop(timestamp) {
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            
+            update(deltaTime);
+            draw();
+            
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        // Start game
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            gameRunning = true;
+            score = 0;
+            coinsDestroyed = 0;
+            sparks = [];
+            coins = [];
+            particles = [];
+            coinSpawnTimer = 0;
+            document.getElementById('score').textContent = '0';
+            document.getElementById('coins').textContent = '0';
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById('final-score').textContent = `Credits: ${score} | Coins: ${coinsDestroyed}`;
+            document.getElementById('game-over-screen').style.display = 'flex';
+        }
+        
+        // Restart
+        function restartGame() {
+            document.getElementById('game-over-screen').style.display = 'none';
+            startGame();
+        }
+        
+        // Input handling
+        canvas.addEventListener('click', shoot);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            shoot();
+        });
+        
+        // Mouse movement for player
+        canvas.addEventListener('mousemove', (e) => {
+            if (!gameRunning) return;
+            player.x = e.clientX;
+        });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            if (!gameRunning) return;
+            e.preventDefault();
+            player.x = e.touches[0].clientX;
+        });
+        
+        // Auto-shoot on spacebar
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                shoot();
+            }
+        });
+        
+        // Handle coin image load
+        coinImage.onload = () => {
+            console.log('Coin image loaded!');
+        };
+        
+        // If image fails, use fallback
+        coinImage.onerror = () => {
+            console.log('Coin image failed to load, using fallback');
+        };
+    </script>
+</body>
+</html>
