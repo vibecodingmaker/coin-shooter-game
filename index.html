@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Coin Shooter</title>
+    <title>Coin Shooter Deluxe</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -37,46 +37,44 @@
             display: flex;
             justify-content: space-between;
             padding: 20px;
-            color: #ffd700;
         }
         
         .score-box {
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.7);
             padding: 15px 25px;
             border-radius: 15px;
             border: 2px solid #ffd700;
-            box-shadow: 0 0 20px rgba(255,215,0,0.3);
+            box-shadow: 0 0 20px rgba(255,215,0,0.4);
+            color: #ffd700;
+        }
+        
+        .coins-box {
+            background: rgba(0,0,0,0.7);
+            padding: 15px 25px;
+            border-radius: 15px;
+            border: 2px solid #00d4ff;
+            box-shadow: 0 0 20px rgba(0,212,255,0.4);
+            color: #00d4ff;
         }
         
         .score-label {
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: #aaa;
+            opacity: 0.7;
+            margin-bottom: 5px;
         }
         
         .score-value {
             font-size: 32px;
             font-weight: bold;
-            text-shadow: 0 0 10px rgba(255,215,0,0.5);
-        }
-        
-        .coins-count {
-            background: rgba(0,0,0,0.6);
-            padding: 15px 25px;
-            border-radius: 15px;
-            border: 2px solid #00d4ff;
-            color: #00d4ff;
-            box-shadow: 0 0 20px rgba(0,212,255,0.3);
+            text-shadow: 0 0 15px currentColor;
         }
         
         #start-screen, #game-over-screen {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.85);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -88,53 +86,85 @@
         #game-over-screen { display: none; }
         
         .title {
-            font-size: 48px;
-            color: #ffd700;
-            text-shadow: 0 0 30px rgba(255,215,0,0.5);
+            font-size: 52px;
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(255,215,0,0.3);
             margin-bottom: 10px;
+            font-weight: bold;
         }
         
         .subtitle {
             color: #888;
-            font-size: 16px;
-            margin-bottom: 30px;
-            text-align: center;
+            font-size: 18px;
+            margin-bottom: 40px;
         }
         
         .btn {
-            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            background: linear-gradient(135deg, #ffd700, #ff6b35);
             color: #1a1a2e;
             border: none;
-            padding: 18px 40px;
-            font-size: 20px;
+            padding: 20px 50px;
+            font-size: 22px;
             font-weight: bold;
-            border-radius: 30px;
+            border-radius: 50px;
             cursor: pointer;
-            box-shadow: 0 10px 30px rgba(255,215,0,0.4);
-            transition: transform 0.2s;
+            box-shadow: 0 10px 30px rgba(255,215,0,0.5);
+            transition: all 0.3s;
         }
         
-        .btn:hover { transform: translateY(-3px); }
+        .btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 15px 40px rgba(255,215,0,0.6);
+        }
         
         .instructions {
-            margin-top: 30px;
+            margin-top: 40px;
             color: #666;
             font-size: 14px;
             text-align: center;
-            line-height: 1.6;
+            line-height: 1.8;
         }
         
-        #coin-image {
+        .coin-preview {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .coin-item {
+            text-align: center;
+        }
+        
+        .coin-item img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+        
+        .coin-item span {
+            display: block;
+            color: #888;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffd700;
+            font-size: 24px;
             display: none;
         }
     </style>
 </head>
 <body>
     <div id="game-container">
-        <!-- Hidden image for game sprite -->
-        <img id="coin-image" src="attached-coin.jpg" alt="Coin">
-        
         <canvas id="gameCanvas"></canvas>
+        
+        <div id="loading">Loading assets...</div>
         
         <div id="ui">
             <div class="hud">
@@ -142,8 +172,8 @@
                     <div class="score-label">Credits</div>
                     <div class="score-value" id="score">0</div>
                 </div>
-                <div class="coins-count">
-                    <div class="score-label">Coins</div>
+                <div class="coins-box">
+                    <div class="score-label">Coins Hit</div>
                     <div class="score-value" id="coins">0</div>
                 </div>
             </div>
@@ -151,18 +181,32 @@
         
         <div id="start-screen">
             <div class="title">🪙 Coin Shooter</div>
-            <div class="subtitle">Shoot coins to earn credits!</div>
+            <div class="subtitle">Shoot coins & collect credits!</div>
             <button class="btn" onclick="startGame()">▶ START GAME</button>
             <div class="instructions">
-                <p>📱 Tap/Click to shoot sparks</p>
-                <p>🪙 Hit falling coins for credits</p>
-                <p>💎 Don't let coins reach bottom!</p>
+                <p>📱 Tap/Click or Press SPACE to shoot fire</p>
+                <p>🎯 Hit coins before they reach bottom</p>
+                <p>💀 Game Over if a coin escapes!</p>
+            </div>
+            <div class="coin-preview">
+                <div class="coin-item">
+                    <img src="gold-coin.jpg" alt="Gold">
+                    <span>1pt</span>
+                </div>
+                <div class="coin-item">
+                    <img src="attached-coin.jpg" alt="Gold Big">
+                    <span>5pt</span>
+                </div>
+                <div class="coin-item">
+                    <img src="diamond.jpg" alt="Diamond">
+                    <span>10pt</span>
+                </div>
             </div>
         </div>
         
         <div id="game-over-screen">
             <div class="title">Game Over</div>
-            <div class="subtitle" id="final-score">Credits: 0</div>
+            <div class="subtitle" id="final-score"></div>
             <button class="btn" onclick="restartGame()">🔄 PLAY AGAIN</button>
         </div>
     </div>
@@ -170,22 +214,45 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const coinImage = document.getElementById('coin-image');
+        
+        // Load images
+        const images = {
+            player: new Image(),
+            goldCoin: new Image(),
+            bigCoin: new Image(),
+            diamond: new Image(),
+            fire: new Image()
+        };
+        
+        images.player.src = 'player-coin.jpg';
+        images.goldCoin.src = 'gold-coin.jpg';
+        images.bigCoin.src = 'attached-coin.jpg';
+        images.diamond.src = 'diamond.jpg';
+        images.fire.src = 'fire-sprite.jpg';
+        
+        let imagesLoaded = 0;
+        const totalImages = Object.keys(images).length;
+        
+        Object.values(images).forEach(img => {
+            img.onload = () => { imagesLoaded++; };
+            img.onerror = () => { imagesLoaded++; }; // Continue even if error
+        });
         
         // Game state
         let gameRunning = false;
         let score = 0;
-        let coinsDestroyed = 0;
+        let coinsHit = 0;
         let lastTime = 0;
         let coinSpawnTimer = 0;
+        let difficulty = 1;
         
         // Game objects
-        let player = { x: 0, y: 0, width: 60, height: 60 };
-        let sparks = [];
+        let player = { x: 0, y: 0, width: 70, height: 70 };
+        let bullets = [];
         let coins = [];
         let particles = [];
         
-        // Resize canvas
+        // Resize
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -195,81 +262,20 @@
         window.addEventListener('resize', resize);
         resize();
         
-        // Spark (bullet) class
-        class Spark {
+        // Bullet class
+        class Bullet {
             constructor(x, y) {
                 this.x = x;
                 this.y = y;
-                this.vx = (Math.random() - 0.5) * 2;
-                this.vy = -10 - Math.random() * 5;
-                this.radius = 4;
-                this.life = 100;
-                this.trail = [];
-            }
-            
-            update() {
-                // Store trail
-                this.trail.push({ x: this.x, y: this.y, life: 10 });
-                if (this.trail.length > 10) this.trail.shift();
-                
-                this.x += this.vx;
-                this.y += this.vy;
-                this.life--;
-                
-                // Update trail
-                this.trail.forEach(t => t.life--);
-                this.trail = this.trail.filter(t => t.life > 0);
-            }
-            
-            draw() {
-                // Draw trail
-                this.trail.forEach((t, i) => {
-                    const alpha = t.life / 10;
-                    ctx.beginPath();
-                    ctx.arc(t.x, t.y, this.radius * (i / 10), 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(255, 215, 0, ${alpha * 0.5})`;
-                    ctx.fill();
-                });
-                
-                // Draw spark
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#ffd700';
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = '#ffed4e';
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                
-                // Core
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius * 0.5, 0, Math.PI * 2);
-                ctx.fillStyle = '#fff';
-                ctx.fill();
-            }
-        }
-        
-        // Coin class
-        class Coin {
-            constructor() {
-                this.size = 50;
-                this.x = Math.random() * (canvas.width - this.size * 2) + this.size;
-                this.y = -this.size;
-                this.vy = 2 + Math.random() * 3;
+                this.width = 30;
+                this.height = 40;
+                this.speed = 15;
                 this.rotation = 0;
-                this.rotationSpeed = (Math.random() - 0.5) * 0.1;
-                this.value = Math.random() > 0.8 ? 10 : (Math.random() > 0.5 ? 5 : 1);
-                this.hit = false;
             }
             
             update() {
-                this.y += this.vy;
-                this.rotation += this.rotationSpeed;
-                
-                // Check if reached bottom
-                if (this.y > canvas.height + this.size) {
-                    return false; // Remove coin
-                }
-                return true;
+                this.y -= this.speed;
+                this.rotation += 0.2;
             }
             
             draw() {
@@ -277,67 +283,95 @@
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.rotation);
                 
-                if (coinImage.complete && coinImage.naturalWidth > 0) {
-                    // Use attached image
-                    ctx.drawImage(coinImage, -this.size/2, -this.size/2, this.size, this.size);
+                if (images.fire.complete && images.fire.naturalWidth > 0) {
+                    ctx.drawImage(images.fire, -this.width/2, -this.height/2, this.width, this.height);
                 } else {
-                    // Fallback: draw coin shape
+                    // Fallback
+                    ctx.fillStyle = '#ff6b35';
                     ctx.beginPath();
-                    ctx.arc(0, 0, this.size/2, 0, Math.PI * 2);
-                    ctx.fillStyle = this.value >= 10 ? '#00d4ff' : (this.value >= 5 ? '#ffa500' : '#ffd700');
+                    ctx.arc(0, 0, 10, 0, Math.PI * 2);
                     ctx.fill();
-                    ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 3;
-                    ctx.stroke();
-                    
-                    // Value text
-                    ctx.rotate(-this.rotation);
-                    ctx.fillStyle = '#000';
-                    ctx.font = 'bold 20px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(this.value, 0, 7);
                 }
                 
                 ctx.restore();
-                
-                // Glow effect
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = this.value >= 10 ? '#00d4ff' : (this.value >= 5 ? '#ffa500' : '#ffd700');
-                ctx.shadowBlur = 0;
-            }
-            
-            getBounds() {
-                return {
-                    left: this.x - this.size/2,
-                    right: this.x + this.size/2,
-                    top: this.y - this.size/2,
-                    bottom: this.y + this.size/2
-                };
             }
         }
         
-        // Particle effect
+        // Coin class
+        class Coin {
+            constructor() {
+                this.type = Math.random() > 0.85 ? 'diamond' : (Math.random() > 0.6 ? 'big' : 'gold');
+                this.size = this.type === 'diamond' ? 55 : (this.type === 'big' ? 60 : 45);
+                this.x = Math.random() * (canvas.width - this.size * 2) + this.size;
+                this.y = -this.size;
+                this.speed = (2 + Math.random() * 2) * difficulty;
+                this.rotation = 0;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.08;
+                this.value = this.type === 'diamond' ? 10 : (this.type === 'big' ? 5 : 1);
+                this.hit = false;
+            }
+            
+            update() {
+                this.y += this.speed;
+                this.rotation += this.rotationSpeed;
+                return this.y < canvas.height + this.size;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                let img;
+                if (this.type === 'diamond' && images.diamond.complete) {
+                    img = images.diamond;
+                } else if (this.type === 'big' && images.bigCoin.complete) {
+                    img = images.bigCoin;
+                } else if (images.goldCoin.complete) {
+                    img = images.goldCoin;
+                }
+                
+                if (img) {
+                    ctx.drawImage(img, -this.size/2, -this.size/2, this.size, this.size);
+                } else {
+                    // Fallback
+                    ctx.fillStyle = this.type === 'diamond' ? '#00d4ff' : '#ffd700';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size/2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Glow
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = this.type === 'diamond' ? '#00d4ff' : '#ffd700';
+                ctx.shadowBlur = 0;
+                
+                ctx.restore();
+            }
+        }
+        
+        // Particle explosion
         class Particle {
             constructor(x, y, color) {
                 this.x = x;
                 this.y = y;
-                this.vx = (Math.random() - 0.5) * 10;
-                this.vy = (Math.random() - 0.5) * 10;
-                this.life = 30;
+                this.vx = (Math.random() - 0.5) * 12;
+                this.vy = (Math.random() - 0.5) * 12;
+                this.life = 40;
                 this.color = color;
-                this.size = Math.random() * 5 + 2;
+                this.size = Math.random() * 6 + 2;
             }
             
             update() {
                 this.x += this.vx;
                 this.y += this.vy;
-                this.vy += 0.3; // Gravity
+                this.vy += 0.4;
                 this.life--;
                 this.size *= 0.95;
             }
             
             draw() {
-                const alpha = this.life / 30;
+                const alpha = this.life / 40;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fillStyle = this.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
@@ -345,117 +379,95 @@
             }
         }
         
-        // Player shooter
         function drawPlayer() {
-            const x = player.x;
-            const y = player.y;
-            
-            // Base
-            ctx.fillStyle = '#444';
-            ctx.fillRect(x - 30, y + 20, 60, 20);
-            
-            // Turret
             ctx.save();
-            ctx.translate(x, y);
+            ctx.translate(player.x, player.y);
             
-            // Cannon
-            ctx.fillStyle = '#666';
-            ctx.fillRect(-8, -40, 16, 40);
-            
-            // Body (using coin image if available)
-            if (coinImage.complete && coinImage.naturalWidth > 0) {
-                ctx.drawImage(coinImage, -30, -30, 60, 60);
+            // Draw player using coin image
+            if (images.player.complete && images.player.naturalWidth > 0) {
+                ctx.drawImage(images.player, -player.width/2, -player.height/2, player.width, player.height);
             } else {
-                ctx.beginPath();
-                ctx.arc(0, 0, 30, 0, Math.PI * 2);
                 ctx.fillStyle = '#ffd700';
+                ctx.beginPath();
+                ctx.arc(0, 0, player.width/2, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.strokeStyle = '#ffed4e';
-                ctx.lineWidth = 3;
-                ctx.stroke();
             }
             
             // Glow
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 30;
             ctx.shadowColor = '#ffd700';
             ctx.shadowBlur = 0;
             
             ctx.restore();
         }
         
-        // Collision detection
-        function checkCollision(spark, coin) {
-            const dx = spark.x - coin.x;
-            const dy = spark.y - coin.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            return distance < (spark.radius + coin.size/2);
+        function checkCollision(bullet, coin) {
+            const dx = bullet.x - coin.x;
+            const dy = bullet.y - coin.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            return dist < (bullet.width/2 + coin.size/2);
         }
         
-        // Create explosion effect
-        function createExplosion(x, y, color) {
-            for (let i = 0; i < 15; i++) {
+        function createExplosion(x, y, type) {
+            const color = type === 'diamond' ? 'rgb(0, 212, 255)' : 
+                         type === 'big' ? 'rgb(255, 165, 0)' : 'rgb(255, 215, 0)';
+            for (let i = 0; i < 20; i++) {
                 particles.push(new Particle(x, y, color));
             }
         }
         
-        // Shoot spark
         function shoot() {
             if (!gameRunning) return;
-            sparks.push(new Spark(player.x, player.y - 40));
+            bullets.push(new Bullet(player.x, player.y - 40));
         }
         
-        // Spawn coin
-        function spawnCoin() {
-            if (!gameRunning) return;
-            coins.push(new Coin());
-        }
-        
-        // Update game
         function update(deltaTime) {
             if (!gameRunning) return;
             
             // Spawn coins every second
             coinSpawnTimer += deltaTime;
-            if (coinSpawnTimer >= 1000) {
-                spawnCoin();
+            if (coinSpawnTimer >= 1000 / difficulty) {
+                coins.push(new Coin());
                 coinSpawnTimer = 0;
+                // Increase difficulty slowly
+                difficulty = 1 + (score / 500);
             }
             
-            // Update sparks
-            sparks.forEach(spark => spark.update());
-            sparks = sparks.filter(spark => spark.life > 0 && spark.y > -50);
+            // Update bullets
+            bullets.forEach(b => b.update());
+            bullets = bullets.filter(b => b.y > -50);
             
             // Update coins
-            coins = coins.filter(coin => {
-                const stillOnScreen = coin.update();
-                if (!stillOnScreen && !coin.hit) {
-                    // Coin reached bottom without being hit
+            for (let i = coins.length - 1; i >= 0; i--) {
+                const coin = coins[i];
+                const onScreen = coin.update();
+                
+                if (!onScreen && !coin.hit) {
+                    // Coin escaped!
                     gameOver();
-                    return false;
+                    return;
                 }
-                return stillOnScreen && !coin.hit;
-            });
+                
+                if (coin.hit) {
+                    coins.splice(i, 1);
+                }
+            }
             
             // Check collisions
-            sparks.forEach((spark, sIndex) => {
-                coins.forEach((coin, cIndex) => {
-                    if (checkCollision(spark, coin)) {
-                        // Hit!
+            bullets.forEach((bullet, bi) => {
+                coins.forEach(coin => {
+                    if (!coin.hit && checkCollision(bullet, coin)) {
                         coin.hit = true;
                         score += coin.value;
-                        coinsDestroyed++;
+                        coinsHit++;
                         
-                        // Create explosion
-                        const color = coin.value >= 10 ? 'rgb(0, 212, 255)' : 
-                                     (coin.value >= 5 ? 'rgb(255, 165, 0)' : 'rgb(255, 215, 0)');
-                        createExplosion(coin.x, coin.y, color);
+                        createExplosion(coin.x, coin.y, coin.type);
                         
-                        // Update UI
                         document.getElementById('score').textContent = score;
-                        document.getElementById('coins').textContent = coinsDestroyed;
+                        document.getElementById('coins').textContent = coinsHit;
                         
-                        // Remove spark
-                        spark.life = 0;
+                        // Remove bullet
+                        bullet.y = -100;
                     }
                 });
             });
@@ -465,31 +477,28 @@
             particles = particles.filter(p => p.life > 0);
         }
         
-        // Draw game
         function draw() {
-            // Clear canvas
+            // Clear with fade effect
             ctx.fillStyle = 'rgba(15, 15, 35, 0.3)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Draw stars background
+            // Stars
             ctx.fillStyle = '#fff';
-            for (let i = 0; i < 50; i++) {
+            for (let i = 0; i < 60; i++) {
                 const x = (i * 137) % canvas.width;
-                const y = (i * 53) % canvas.height;
-                const size = (i % 3) + 1;
-                ctx.globalAlpha = 0.3 + (i % 5) / 10;
-                ctx.fillRect(x, y, size, size);
+                const y = (i * 53 + Date.now() * 0.01) % canvas.height;
+                ctx.globalAlpha = 0.2 + (i % 7) / 10;
+                ctx.fillRect(x, y, 1 + (i % 2), 1 + (i % 2));
             }
             ctx.globalAlpha = 1;
             
-            // Draw game objects
-            sparks.forEach(spark => spark.draw());
-            coins.forEach(coin => coin.draw());
+            // Draw objects
+            bullets.forEach(b => b.draw());
+            coins.forEach(c => c.draw());
             particles.forEach(p => p.draw());
             drawPlayer();
         }
         
-        // Game loop
         function gameLoop(timestamp) {
             const deltaTime = timestamp - lastTime;
             lastTime = timestamp;
@@ -502,13 +511,13 @@
             }
         }
         
-        // Start game
         function startGame() {
             document.getElementById('start-screen').style.display = 'none';
             gameRunning = true;
             score = 0;
-            coinsDestroyed = 0;
-            sparks = [];
+            coinsHit = 0;
+            difficulty = 1;
+            bullets = [];
             coins = [];
             particles = [];
             coinSpawnTimer = 0;
@@ -518,55 +527,39 @@
             requestAnimationFrame(gameLoop);
         }
         
-        // Game over
         function gameOver() {
             gameRunning = false;
-            document.getElementById('final-score').textContent = `Credits: ${score} | Coins: ${coinsDestroyed}`;
+            document.getElementById('final-score').innerHTML = 
+                `Credits: <span style="color:#ffd700">${score}</span> | Coins: <span style="color:#00d4ff">${coinsHit}</span>`;
             document.getElementById('game-over-screen').style.display = 'flex';
         }
         
-        // Restart
         function restartGame() {
             document.getElementById('game-over-screen').style.display = 'none';
             startGame();
         }
         
-        // Input handling
+        // Controls
         canvas.addEventListener('click', shoot);
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            shoot();
-        });
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
         
-        // Mouse movement for player
         canvas.addEventListener('mousemove', (e) => {
-            if (!gameRunning) return;
-            player.x = e.clientX;
+            if (gameRunning) player.x = e.clientX;
         });
         
         canvas.addEventListener('touchmove', (e) => {
-            if (!gameRunning) return;
-            e.preventDefault();
-            player.x = e.touches[0].clientX;
+            if (gameRunning) {
+                e.preventDefault();
+                player.x = e.touches[0].clientX;
+            }
         });
         
-        // Auto-shoot on spacebar
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space') {
                 e.preventDefault();
                 shoot();
             }
         });
-        
-        // Handle coin image load
-        coinImage.onload = () => {
-            console.log('Coin image loaded!');
-        };
-        
-        // If image fails, use fallback
-        coinImage.onerror = () => {
-            console.log('Coin image failed to load, using fallback');
-        };
     </script>
 </body>
 </html>
